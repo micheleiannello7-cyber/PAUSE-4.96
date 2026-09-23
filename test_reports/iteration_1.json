@@ -1,0 +1,42 @@
+{
+  "summary": "PAUSE migration verified end-to-end. Backend: 12/12 pytest smoke tests pass (health, 12 categories, 437+ stories seeded, story detail with 6 chapters, IT/EN localization, user create/interests/bookmark/complete flow, stats, discover-next). Frontend Expo web preview loads correctly, onboarding (intro -> topics -> tabs) works, Discover deck shows story cards, tapping opens /deep-dive/[id] with 6-chapter pager + Listen button, bookmark toggles and appears in Saved tab, Profile shows persisted stats (1 completed, streak, minutes) and IT/EN language toggle, Topics tab shows all 12 categories with correct counts. Only issue: /api/category-media/{id} and /api/media/{story_id} return 500 because the source-repo hero/illustration paths point to Object Storage assets that don't exist in this Emergent environment; frontend falls back gracefully to SVG line icons, but the endpoint should catch missing-object errors and return 404 to stop console-spamming 500s. Audio TTS not exercised (per instructions, LLM budget concerns).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "GET /api/category-media/{category_id}", "issue": "Returns 500 when the referenced Object Storage asset is missing. Root cause: seed docs (from source repo) have illustration_generated paths whose bytes aren't present in this env's Object Storage; requests.HTTPError bubbles up. Should be caught and return 404. File: backend/media_cache.py (cached_object) or backend/server.py::media_for_category. Frontend already handles 404 with SVG fallback."},
+      {"endpoint": "GET /api/media/{story_id}", "issue": "Same root cause — returns 500 for stories whose hero_image_generated references a missing Object Storage object. Should return 404."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [
+      {"flow": "Category / story hero images", "issue": "Console flooded with 500s from /api/category-media/* and /api/media/*. Not user-visible (SVG fallback renders), but pollutes logs and slows the page. Fix by returning 404 on missing storage assets (see backend minor issue).", "affected_testIDs": ["category-art-scienza-image", "category-art-spazio-image"]}
+    ],
+    "design_issues": [],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_migration_iter1.py",
+    "/app/test_reports/pytest/migration_iter1.xml"
+  ],
+  "action_items": [
+    "Backend: catch missing-object errors in /api/category-media and /api/media (backend/server.py or media_cache.cached_object) and return 404 so the frontend's SVG fallback triggers cleanly and console stops showing 500s.",
+    "Optional: run a one-time script to null out `illustration_generated`/`hero_image_generated` in Mongo for docs whose Object Storage bytes aren't present in this env, so the endpoints never attempt the remote fetch.",
+    "TTS audio generation was not tested per instructions; validate once separately if EMERGENT_LLM_KEY budget allows."
+  ],
+  "critical_code_review_comments": [
+    "server.py is ~1500 lines — consider splitting routes into modules (content, user, stripe, tts, media) for maintainability, but this is source-repo code and out of scope for the migration.",
+    "media_cache.cached_object should translate upstream 404/HTTPError into HTTPException(404) instead of letting requests.HTTPError propagate (currently causes 500)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_migration_iter1.py (new)",
+    "/app/test_reports/iteration_1.json (new)",
+    "/app/test_reports/pytest/migration_iter1.xml (new)"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "100% (functional flows); image media endpoints degraded (500->should be 404)"},
+  "seed_data_creation": "Auto-seeded by backend startup: 12 categories, 437 stories (STORIES + LESSONS_A + LESSONS_B). Test user ids prefixed TEST_migration_* are created via GET /api/user/{id} and left in Mongo (anonymous, harmless).",
+  "retest_needed": false,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Migration is complete and functional. If main agent fixes media endpoints (return 404 on missing Object Storage), retest with: curl -s -o /dev/null -w %{http_code} https://<preview>/api/category-media/scienza (expect 404) and reload the app — console should be clean. All other flows (onboarding, discover, deep-dive, bookmark, saved, stats, topics, language toggle) already verified working via Playwright.",
+  "rca_of_issue": "500 on media endpoints — the seed_data lists Object Storage paths from the original repo's bucket (pause/category/... and pause/hero/...). In this fresh Emergent env, only Mongo is migrated; the Object Storage bucket is empty. media_cache.cached_object() calls the storage service via requests; when it gets a 404 it raises HTTPError, which FastAPI turns into a 500 instead of 404. Fix: wrap the storage fetch in try/except HTTPError and re-raise HTTPException(404). Frontend already has proper fallback and remains usable."
+}
