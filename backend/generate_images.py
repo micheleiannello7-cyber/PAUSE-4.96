@@ -36,7 +36,7 @@ MODEL = "gemini-3.1-flash-image-preview"
 CONCURRENCY = 4
 
 
-async def generate_and_upload(session_id: str, prompt: str, storage_path: str) -> str:
+async def generate_image(session_id: str, prompt: str) -> tuple[bytes, str]:
     api_key = os.environ["EMERGENT_LLM_KEY"]
     chat = LlmChat(
         api_key=api_key,
@@ -51,7 +51,12 @@ async def generate_and_upload(session_id: str, prompt: str, storage_path: str) -
         raise RuntimeError(f"No image returned for {session_id}")
     image_bytes = base64.b64decode(images[0]["data"])
     mime = images[0].get("mime_type") or "image/png"
-    put_object(storage_path, image_bytes, mime)
+    return image_bytes, mime
+
+
+async def generate_and_upload(session_id: str, prompt: str, storage_path: str) -> str:
+    image_bytes, mime = await generate_image(session_id, prompt)
+    await asyncio.to_thread(put_object, storage_path, image_bytes, mime)
     return storage_path
 
 

@@ -97,6 +97,9 @@ export default function Discover() {
   }, [categories, interests]);
   const showEmpty = deck.length === 0 && (exhausted || (error && !loading));
   const openStory = useCallback((story: StoryPreview) => router.push(`/deep-dive/${story.id}?start=1`), [router]);
+  const listenStory = useCallback((story: StoryPreview) => {
+    if (userState?.is_premium) router.push(`/deep-dive/${story.id}?start=1&listen=1`);
+  }, [router, userState?.is_premium]);
 
   return (
     <View testID="home-screen" style={[styles.container, { paddingTop: insets.top }]}>
@@ -114,7 +117,8 @@ export default function Discover() {
             <GradientButton label={t.restart} icon="refresh" onPress={resetDeck} testID="reset-skipped" style={styles.resetBtn} />
           </View>
         ) : deck[cursor] ? (
-          <HomeStoryDeck deck={deck} cursor={cursor} onChange={setCursor} onOpen={openStory} />
+          <HomeStoryDeck deck={deck} cursor={cursor} onChange={setCursor} onOpen={openStory}
+            onListen={userState?.is_premium ? listenStory : undefined} />
         ) : (
           <View testID="discover-loading" style={styles.loading}><ActivityIndicator color={colors.brand} /></View>
         )}

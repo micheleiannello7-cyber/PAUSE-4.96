@@ -1,0 +1,6 @@
+{
+  "reviewed_pdfs": ["catalog-1.pdf"],
+  "removed_mismatch_ids": ["cur-why-onions-cry"],
+  "unavailable_to_recheck": ["geo-why-oceans-salty", "geo-rivers-civilization", "how-glaciers-move", "how-batteries-work", "eco-why-taxes", "eco-why-things-cost", "nat-mushrooms-network"],
+  "uncertain_ids": []
+}

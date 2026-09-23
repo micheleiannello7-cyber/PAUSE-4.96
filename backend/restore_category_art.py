@@ -4,6 +4,7 @@ paths recorded in category_art_manifest.json (idempotent, no AI generation).
 Use after a fork / new environment whose Object Storage bucket is empty:
     python restore_category_art.py
 """
+import argparse
 import io
 import json
 from pathlib import Path
@@ -34,11 +35,14 @@ def optimise(raw: bytes) -> bytes:
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--reupload", action="store_true", help="Restore a fresh bucket without probing missing objects")
+    args = parser.parse_args()
     manifest = json.loads((ROOT / "category_art_manifest.json").read_text())
     sources = {v: json.loads((ROOT / f).read_text()) for v, f in SOURCE_FILES.items()}
     for category_id, path in manifest["artworks"].items():
         version = path.split("/")[2]
-        if get_object_optional(path):
+        if not args.reupload and get_object_optional(path):
             print(f"ok       {category_id} ({path})")
             continue
         src = sources[version]
@@ -46,7 +50,7 @@ def main():
         raw.raise_for_status()
         data = optimise(raw.content)
         put_object(path, data, "image/webp")
-        print(f"restored {category_id}: {len(data)} bytes -> {path}")
+        print(f"restored {category_id}: {len(data)} bytes -> {path}", flush=True)
 
 
 if __name__ == "__main__":

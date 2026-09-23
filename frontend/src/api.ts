@@ -73,7 +73,9 @@ export function categoryIllustrationUrl(cat: Pick<Category, "id" | "illustration
 }
 
 export function categoryArtworkUrl(id: string, version: string): string {
-  return `${BASE}/api/category-media/${encodeURIComponent(id)}?v=${encodeURIComponent(version)}`;
+  // Restored original bytes keep their approved hash. A delivery revision also
+  // resets mounted image error state after the previous bucket returned 404s.
+  return `${BASE}/api/category-media/${encodeURIComponent(id)}?v=${encodeURIComponent(version)}&delivery=restored-v2`;
 }
 
 export type Chapter = {

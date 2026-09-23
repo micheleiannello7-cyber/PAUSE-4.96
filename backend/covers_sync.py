@@ -30,8 +30,8 @@ async def sync_local_covers(db) -> dict:
     changed (digest differs from the one recorded on the story)."""
     stats = {"uploaded": 0, "skipped": 0, "unknown": 0}
     for sid, file in local_covers().items():
-        doc = await db.stories.find_one({"id": sid}, {"_id": 0, "hero_source_digest": 1})
-        if not doc:
+        doc = await db.stories.find_one({"id": sid}, {"_id": 0, "id": 1, "hero_source_digest": 1})
+        if doc is None:
             stats["unknown"] += 1
             logger.warning("cover %s: nessuna storia con questo id", file.name)
             continue

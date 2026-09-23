@@ -4,7 +4,7 @@ import {
   LayoutChangeEvent, StyleProp, ViewStyle,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
+import { StoryHero } from "@/src/components/story-hero";
 import { LinearGradient } from "expo-linear-gradient";
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, withRepeat, Easing, SharedValue } from "react-native-reanimated";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -13,7 +13,7 @@ import Ionicons from "@react-native-vector-icons/ionicons";
 import { captureRef } from "react-native-view-shot";
 import * as Sharing from "expo-sharing";
 
-import { api, Chapter, Story, heroUrl, isLesson } from "@/src/api";
+import { api, Chapter, Story, isLesson } from "@/src/api";
 import { makeStyles, useTheme, withAlpha, spacing, radius, typography, ThemeColors } from "@/src/theme";
 import { useUserId } from "@/src/session";
 import { useStoryActions } from "@/src/hooks/use-story-actions";
@@ -21,6 +21,7 @@ import { saveReadingProgress, clearReadingProgress, getReadingProgress, toStoryP
 import { HighlightedTitle } from "@/src/components/highlighted-title";
 import { CategoryTag, MetaInline } from "@/src/components/reader-meta";
 import { GradientButton } from "@/src/components/gradient-button";
+import { FrostedButton } from "@/src/components/frosted-button";
 import { LessonCover } from "@/src/components/lesson-cover";
 import { KindBadge } from "@/src/components/kind-badge";
 import { StoryAudioProvider, AudioSheet, AudioTrigger, IntroListenButton } from "@/src/components/story-audio-player";
@@ -29,14 +30,14 @@ import { ReaderNav } from "@/src/components/reader-nav";
 import { BookPager } from "@/src/components/book-pager";
 import { Screen } from "@/src/components/screen";
 import { StoryShareCard, SHARE_CARD_WIDTH } from "@/src/components/story-share-card";
-import { GlassIconButton, AmbientGlow } from "@/src/components/glass";
+import { GlassIconButton } from "@/src/components/glass";
 import { useI18n } from "@/src/i18n";
 import { CoachTip } from "@/src/coach-tips";
 
 export default function DeepDive() {
   // `start=1` (dalla Home "Leggi la curiosità"): si apre direttamente sul
   // primo capitolo, senza la pagina introduttiva.
-  const { id, start } = useLocalSearchParams<{ id: string; start?: string }>();
+  const { id, start, listen } = useLocalSearchParams<{ id: string; start?: string; listen?: string }>();
   const insets = useSafeAreaInsets();
   const { height: winH } = useWindowDimensions();
   const router = useRouter();
@@ -47,7 +48,7 @@ export default function DeepDive() {
   const shareRef = useRef<View>(null);
   const startedAtRef = useRef<number>(Date.now());
   const [page, setPage] = useState(start === "1" ? 1 : 0);
-  const [audioOpen, setAudioOpen] = useState(false);
+  const [audioOpen, setAudioOpen] = useState(listen === "1");
   // Il progresso di lettura si salva solo dopo un vero gesto del lettore
   // (non per la pagina su cui si è aperta la storia automaticamente).
   const touchedRef = useRef(false);
@@ -72,6 +73,7 @@ export default function DeepDive() {
     enabled: !!userId,
   });
   const { toggle } = useStoryActions(userId, id);
+  const isPremium = !!user?.is_premium;
 
   // Pages: intro · one per chapter · closing ("Da ricordare" + next story).
   const pageCount = (story?.chapters.length ?? 0) + 2;
@@ -207,9 +209,9 @@ export default function DeepDive() {
   };
 
   const pages = [
-    <ReaderSheet key="intro" index={0} minTop={minTop} glowColor={story.category_color} onContentTop={onContentTop} testID="deep-dive-page-intro">
+    <ReaderSheet key="intro" index={0} minTop={minTop} onContentTop={onContentTop} testID="deep-dive-page-intro">
       <View style={styles.metaRow}>
-        <CategoryTag name={story.category_name} icon={story.category_icon} color={story.category_color} />
+        <CategoryTag testID="reader-category-intro" name={story.category_name} icon={story.category_icon} color={story.category_color} />
         <KindBadge story={story} overlay />
         <View style={styles.metaSpacer} />
         <MetaInline icon="time-outline" label={minutesLabel} testID="deep-dive-minutes" />
@@ -217,8 +219,8 @@ export default function DeepDive() {
       <HighlightedTitle title={story.title} highlight={story.highlight_words} highlightColor={colors.cyan} style={styles.readerTitle} />
       <Text style={styles.readerBody} numberOfLines={5}>{story.hook}</Text>
       <View style={styles.ctaRow}>
-        <GradientButton label={t.deep_start} icon="book-outline" onPress={() => goTo(1)} testID="deep-dive-start" style={styles.ctaMain} />
-        <IntroListenButton compact onListen={() => goTo(1)} />
+        <FrostedButton label={t.deep_start} icon="book-outline" onPress={() => goTo(1)} testID="deep-dive-start" style={styles.ctaMain} />
+        {isPremium ? <IntroListenButton onListen={() => { goTo(1); setAudioOpen(true); }} /> : null}
       </View>
     </ReaderSheet>,
     ...story.chapters.map((c) => (
@@ -230,11 +232,12 @@ export default function DeepDive() {
         minutesLabel={minutesLabel}
         onContentTop={(y) => onContentTop(c.number, y)}
         onListen={() => setAudioOpen(true)}
+        isPremium={isPremium}
       />
     )),
-    <ReaderSheet key="end" index={lastPage} minTop={minTop} glowColor={colors.warning} onContentTop={onContentTop} testID="deep-dive-page-end">
+    <ReaderSheet key="end" index={lastPage} minTop={minTop} onContentTop={onContentTop} testID="deep-dive-page-end">
       <View style={styles.metaRow}>
-        <CategoryTag name={story.category_name} icon={story.category_icon} color={story.category_color} />
+        <CategoryTag testID="reader-category-end" name={story.category_name} icon={story.category_icon} color={story.category_color} />
         <View style={styles.metaSpacer} />
         <MetaInline icon="time-outline" label={minutesLabel} />
       </View>
@@ -299,27 +302,30 @@ export default function DeepDive() {
           <LinearGradient colors={[colors.cyan, colors.cyanSoft]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.progressFill} />
         </Animated.View>
       </View>
-      <StoryAudioProvider storyId={story.id}>
+      <StoryAudioProvider key={story.id} storyId={story.id} autoplay={listen === "1" && isPremium}>
         <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm }]}>
           <GlassIconButton
             onPress={goBack}
             testID="back-button"
             accessibilityLabel={t.back}
-            size={40}
+            size={44}
           >
             <Ionicons name="arrow-back" size={18} color={colors.onSurface} />
           </GlassIconButton>
           {/* In alto solo "Salva", su ogni pagina. Mi piace e Condividi stanno
               alla fine, nella pagina "Da ricordare". */}
+          <View style={styles.topActions}>
+          {isPremium && page >= 2 ? <AudioTrigger iconOnly onPress={() => setAudioOpen(true)} testID="reader-audio-corner" /> : null}
           <GlassIconButton
             onPress={() => toggle("bookmark")}
             testID="bookmark-button"
             accessibilityLabel={t.save_verb}
-            size={40}
+            size={44}
             active={bookmarked}
           >
             <Ionicons name={bookmarked ? "bookmark" : "bookmark-outline"} size={17} color={bookmarked ? colors.cyan : colors.onSurface} />
           </GlassIconButton>
+          </View>
         </View>
 
         <BookPager ref={pagerRef} pages={pages} page={page} onPageChange={changePage} testID="deep-dive-pager" />
@@ -339,7 +345,7 @@ export default function DeepDive() {
         {page === 1 ? (
           <CoachTip id="reader" text={t.tip_reader} icon="book-outline" style={{ top: tipTop }} />
         ) : null}
-        <AudioSheet visible={audioOpen} onClose={() => setAudioOpen(false)} />
+        {isPremium ? <AudioSheet visible={audioOpen} onClose={() => setAudioOpen(false)} /> : null}
       </StoryAudioProvider>
       {/* Off-screen share card, captured as PNG on demand. */}
       <View style={styles.shareHidden}>
@@ -370,9 +376,9 @@ function ImmersiveCover({ story, heightSV, maxHeight }: { story: Story; heightSV
     <Animated.View style={[styles.cover, box, { pointerEvents: "none" }]} testID="chapter-cover-bg">
       <Animated.View style={[styles.coverImage, { height: maxHeight }, breathe]}>
         {hasCover ? (
-          <Image source={{ uri: heroUrl(story) }} style={StyleSheet.absoluteFill} contentFit="cover" transition={400} cachePolicy="memory-disk" />
+          <StoryHero story={story} style={StyleSheet.absoluteFill} transition={400} />
         ) : (
-          <LessonCover color={story.category_color} icon={story.category_icon} iconSize={72} showBadge={false} style={StyleSheet.absoluteFill} />
+          <LessonCover color={colors.muted} icon={story.category_icon} iconSize={72} showBadge={false} style={StyleSheet.absoluteFill} />
         )}
       </Animated.View>
       {/* Tinta notte: porta ogni foto verso la stessa temperatura blu-notte. */}
@@ -395,13 +401,6 @@ function ImmersiveCover({ story, heightSV, maxHeight }: { story: Story; heightSV
         locations={[0, 0.16, 0.36, 0.50, 0.62, 0.74, 0.85, 0.94, 1]}
         style={StyleSheet.absoluteFill}
       />
-      {/* Luce ambientale del colore della categoria che sale dal basso: è la
-          "luce dell'immagine" che illumina il vetro dei controlli. */}
-      <LinearGradient
-        colors={["transparent", withAlpha(story.category_color, 0.10)]}
-        locations={[0.45, 1]}
-        style={StyleSheet.absoluteFill}
-      />
     </Animated.View>
   );
 }
@@ -410,11 +409,10 @@ function ImmersiveCover({ story, heightSV, maxHeight }: { story: Story; heightSV
 // navigazione. Comunica al lettore dove comincia (y), così la copertina fissa
 // sfuma esattamente dietro il titolo, anche quando il testo è breve.
 function ReaderSheet({
-  index, minTop, glowColor, onContentTop, onPageLayout, onContentLayout, contentStyle, children, testID,
+  index, minTop, onContentTop, onPageLayout, onContentLayout, contentStyle, children, testID,
 }: {
   index: number;
   minTop: number;
-  glowColor?: string;
   onContentTop: (index: number, y: number) => void;
   onPageLayout?: (e: LayoutChangeEvent) => void;
   onContentLayout?: (e: LayoutChangeEvent) => void;
@@ -429,8 +427,6 @@ function ReaderSheet({
         style={[styles.readerInner, contentStyle]}
         onLayout={(e) => { onContentTop(index, e.nativeEvent.layout.y); onContentLayout?.(e); }}
       >
-        {/* Sorgente di luce diffusa dietro categoria e titolo: profondità. */}
-        {glowColor ? <AmbientGlow color={glowColor} alpha={0.14} size={260} style={{ top: -30, left: -40 }} /> : null}
         {children}
       </View>
     </View>
@@ -445,8 +441,8 @@ function ReaderSheet({
 const MIN_FIT = 0.68;
 const FIT_STEP = 0.05;
 function ChapterPage({
-  chapter, story, minTop, minutesLabel, onContentTop, onListen,
-}: { chapter: Chapter; story: Story; minTop: number; minutesLabel: string; onContentTop: (y: number) => void; onListen: () => void }) {
+  chapter, story, minTop, minutesLabel, onContentTop, onListen, isPremium,
+}: { chapter: Chapter; story: Story; minTop: number; minutesLabel: string; onContentTop: (y: number) => void; onListen: () => void; isPremium: boolean }) {
   const styles = useStyles();
   const { colors } = useTheme();
   const [fit, setFit] = useState(1);
@@ -476,7 +472,6 @@ function ChapterPage({
     <ReaderSheet
       index={chapter.number}
       minTop={minTop}
-      glowColor={story.category_color}
       onContentTop={(_, y) => onContentTop(y)}
       onPageLayout={(e) => { availH.current = e.nativeEvent.layout.height - minTop - spacing.lg; check(); }}
       onContentLayout={(e) => { usedH.current = e.nativeEvent.layout.height; check(); }}
@@ -484,10 +479,9 @@ function ChapterPage({
       testID={`deep-dive-page-chapter-${chapter.number}`}
     >
       <View style={styles.metaRow}>
-        <CategoryTag name={story.category_name} icon={story.category_icon} color={story.category_color} />
+        <CategoryTag testID={`reader-category-${chapter.number}`} name={story.category_name} icon={story.category_icon} color={story.category_color} />
         <View style={styles.metaSpacer} />
         <MetaInline icon="time-outline" label={minutesLabel} />
-        <AudioTrigger onPress={onListen} testID={`audio-trigger-${chapter.number}`} />
       </View>
       <HighlightedTitle
         title={chapter.title}
@@ -495,6 +489,7 @@ function ChapterPage({
         highlightColor={colors.cyan}
         style={[styles.readerTitle, { fontSize: titleSize, lineHeight: Math.round(titleSize * 1.12) }]}
       />
+      {isPremium && chapter.number === 1 ? <IntroListenButton onListen={onListen} testID="reader-first-chapter-listen" /> : null}
       <Text style={[styles.readerBody, { fontSize: bodySize, lineHeight: Math.round(bodySize * 1.76) }]}>{chapter.body}</Text>
     </ReaderSheet>
   );
@@ -514,6 +509,7 @@ const useStyles = makeStyles((colors: ThemeColors) => ({
     paddingHorizontal: spacing.lg,
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
   },
+  topActions: { flexDirection: "row", alignItems: "center", gap: 10 },
   roundBtn: {
     width: 38, height: 38, borderRadius: 19,
     backgroundColor: colors.scrim,

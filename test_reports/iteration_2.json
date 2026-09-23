@@ -1,0 +1,50 @@
+{
+  "summary": "Executed backend + mobile-web regression for media restoration/covers. Pytest suite (12 tests) passed for category media, generated/local covers, idempotence checks, dry-run selection, and 404 behavior. Mobile UI flows passed (onboarding -> topics -> home -> reader), StoryHero forced-failure fallback worked, but deep-dive has minor horizontal overflow (390px viewport => 394px scroll width).",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {
+        "screen": "deep-dive/[id]",
+        "issues": [
+          "Horizontal overflow detected on mobile (390x844): document scroll width 394 > viewport 390 on /deep-dive/v4-ghiaccio-galleggia."
+        ]
+      }
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter27_media_restore_regression.py",
+    "/app/test_reports/pytest/iter27_media_restore_regression.xml",
+    "/app/test_reports/ui_iter27/onboarding_intro.jpg",
+    "/app/test_reports/ui_iter27/explore_lower_grid.jpg",
+    "/app/test_reports/ui_iter27/deep_dive_luna_cover.jpg",
+    "/app/test_reports/ui_iter27/storyhero_forced_fallback.jpg"
+  ],
+  "action_items": [
+    "Fix deep-dive horizontal overflow at mobile width 390 (4px spill) and retest /deep-dive/v4-ghiaccio-galleggia.",
+    "Optional cleanup: address recurring web warnings (pointerEvents deprecation, textShadow* deprecation, Reanimated easing web fallback)."
+  ],
+  "critical_code_review_comments": [
+    "backend/server.py is very large (>1400 lines) and should be split into focused modules for long-term maintainability.",
+    "Frontend env usage is consistent in this app with EXPO_PUBLIC_BACKEND_URL, but project-level docs still reference EXPO_BACKEND_URL; keep naming aligned to avoid future config drift."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_iter27_media_restore_regression.py",
+    "/app/test_reports/iteration_2.json",
+    "/app/test_reports/pytest/iter27_media_restore_regression.xml"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "95%"
+  },
+  "seed_data_creation": "No new seed data created.",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Backend media/covers checks are green, including: 13 category-media endpoints with ETag/304, 60 generated cover IDs validated with hero+thumb media constraints, 8 local cover links present, assets-report covers=68 and missing blank docs=210, restore_generated_covers rerun skipped 60 with no uploads, generate_covers --dry-run reported 210. UI screenshots captured under /app/test_reports/ui_iter27. Recheck deep-dive overflow after fix.",
+  "rca_of_issue": "Deep-dive screen has a small horizontal overflow only on reader route at 390px width (scrollWidth 394). Onboarding and Topics did not overflow. This is likely from a component on deep-dive layout exceeding container width by a few pixels (padding/border/shadow/absolute element interaction)."
+}

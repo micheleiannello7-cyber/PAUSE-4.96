@@ -1,0 +1,66 @@
+{
+  "summary": "Executed backend + mobile-web regression for free/premium audio gating and reader/home navigation contract. Backend pytest passed (4/4). Frontend checks passed for most requested flows: free has no audio controls, premium has home listen + reader audio sheet, deep-link listen is blocked for free (no /api/tts calls), premium downgrade hides audio controls, playlist is locked for free, 390/360 widths have no overflow and controls >=44px. One UI/design mismatch remains in reader category styling.",
+  "backend_issues": {
+    "critical": [],
+    "minor": []
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "Reader category badge (deep-dive chapter pages)",
+        "issue": "Category chip in reader still renders with accent-tinted/glow style; request asked to remove category background/glow in paragraphs for more neutral integration.",
+        "testID": "category-tag",
+        "priority": "MEDIUM"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Premium first playback attempt (single allowed attempt)",
+        "issue": "Attempt reached 'Preparing narration…' state with warmup + status polling; no clear 'unavailable' error surfaced during allowed wait window. This is likely provider/runtime availability latency, not a confirmed app regression.",
+        "affected_testIDs": [
+          "audio-play-toggle",
+          "audio-subtitle",
+          "audio-sheet"
+        ]
+      }
+    ],
+    "design_issues": [
+      {
+        "screen": "deep-dive/[id]",
+        "issues": [
+          "Reader category presentation still appears visually accented/tinted instead of neutral as requested (category background/glow removal)."
+        ]
+      }
+    ],
+    "react_native_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_iter3_tier_audio_regression.py",
+    "/app/test_reports/pytest/iter3_tier_audio_regression.xml",
+    "/app/test_reports/ui_iter3/final_ui_regression.jpg",
+    "/app/test_reports/ui_iter3/premium_reader_state.jpg"
+  ],
+  "action_items": [
+    "Update reader category styling to neutral (remove accent background/glow effect in chapter paragraph context).",
+    "Recheck premium playback unavailability messaging under current provider limits; keep single-attempt behavior and avoid repeated provider warmup loops.",
+    "(Code review) Profile reset-onboarding currently removes 'pause.onboarded' while app uses 'pause.onboarded.v2'; align key if reset behavior is expected to work."
+  ],
+  "critical_code_review_comments": [
+    "Reader meta component still uses accent styling for category tag (tone='accent', glow-like visual), conflicting with neutral reader request.",
+    "Profile reset-onboarding key mismatch: session uses 'pause.onboarded.v2' but reset removes 'pause.onboarded'."
+  ],
+  "updated_files": [
+    "/app/memory/test_credentials.md",
+    "/app/backend/tests/test_iter3_tier_audio_regression.py",
+    "/app/test_reports/iteration_3.json"
+  ],
+  "success_rate": {
+    "backend": "100%",
+    "frontend": "92%"
+  },
+  "seed_data_creation": "No new seed content. Reused isolated user IDs TEST_ui_free_20260923 and TEST_ui_premium_20260923 (premium flag toggled via /api/user/premium for test setup).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Key validated behaviors: free deep-link '?start=1&listen=1' generated zero /api/tts requests; premium home listen navigates to '?start=1&listen=1' and opens sheet; premium chapter2+/Remember page show corner trigger while chapter1 inline trigger is off-viewport (not active). Avoid counting hidden pager pages by raw element count—use in-viewport/label checks.",
+  "rca_of_issue": "Reader category visual mismatch root cause: category chip in reader uses accent-toned glass styles from shared component (`CategoryTag` in reader-meta) rather than a neutral reader-specific style. This keeps colored tint/glow visible against chapter paragraphs despite requirement to remove it."
+}

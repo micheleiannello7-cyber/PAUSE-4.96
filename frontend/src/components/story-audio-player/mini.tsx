@@ -21,7 +21,7 @@ export function BottomFloatingMini({
   viewportHeight?: number;
   bottomInset: number;
 }) {
-  const { playing, position, buffering, isLoaded, togglePlay, skip, cardScreenYSV, cardHeightSV } = useAudio();
+  const { playing, position, buffering, isLoaded, togglePlay, skip, cardScreenYSV, cardHeightSV, isPremium } = useAudio();
   const styles = useStyles();
   const { colors } = useTheme();
 
@@ -45,6 +45,7 @@ export function BottomFloatingMini({
     } as any;
   });
 
+  if (!isPremium) return null;
   return (
     <Animated.View
       style={[styles.bottomMiniWrap, { bottom: bottomInset + 16 }, animatedStyle]}

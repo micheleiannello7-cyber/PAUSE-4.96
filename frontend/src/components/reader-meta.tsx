@@ -10,23 +10,23 @@ import { makeStyles, useTheme, typography } from "@/src/theme";
 import { GlassPill } from "@/src/components/glass";
 
 export function CategoryTag({
-  name, icon, color, style, testID = "category-tag",
+  name, icon, style, testID = "category-tag",
 }: { name: string; icon: string; color: string; style?: StyleProp<ViewStyle>; testID?: string }) {
   const styles = useStyles();
+  const { colors } = useTheme();
   // Solo la categoria principale ("Scienza · Natura" → "SCIENZA").
   const label = name.split("·")[0].trim().toUpperCase();
   return (
     <GlassPill
       style={[styles.tagOuter, style]}
       testID={testID}
-      tone="accent"
-      accentColor={color}
+      tone="neutral"
       height={34}
     >
-      <View style={[styles.iconWrap, { backgroundColor: color + "33", boxShadow: `0px 0px 10px ${color}66` as any }]}>
-        <Ionicons name={icon as any} size={12} color={color} />
+      <View style={styles.iconWrap}>
+        <Ionicons name={icon as any} size={12} color={colors.onSurfaceTertiary} />
       </View>
-      <Text style={styles.tagText} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
+      <Text testID={`${testID}-label`} style={styles.tagText} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
     </GlassPill>
   );
 }

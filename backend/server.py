@@ -1482,6 +1482,8 @@ async def startup_event():
         logger.info("Local covers sync: %s", await sync_local_covers(db))
     except Exception:
         logger.exception("Local covers sync failed")
+    from cover_curation import apply_cover_exclusions
+    logger.info("Applied cover exclusions: %s", await apply_cover_exclusions(db))
     # Audio assets: metadata indexes, then adopt every legacy mp3 (disk or
     # storage) into `tts_assets` so it is reused instead of regenerated.
     try:

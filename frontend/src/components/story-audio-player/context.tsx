@@ -71,6 +71,8 @@ export function StoryAudioProvider({
   const router = useRouter();
   const userId = useUserId();
   const isPremium = usePremiumFlag();
+  const premiumRef = useRef(isPremium);
+  premiumRef.current = isPremium;
   const [prefs, updatePrefs] = useAudioPrefs();
   const lang = getApiLang();
 
@@ -94,9 +96,10 @@ export function StoryAudioProvider({
     let alive = true;
     setStatus(null);
     setUnavailable(false);
+    if (!isPremium) return;
     api.ttsStatus(storyId, { voice, preview }).then((s) => { if (alive) setStatus(s); }).catch(() => {});
     return () => { alive = false; };
-  }, [storyId, lang, voice, preview]);
+  }, [storyId, lang, voice, preview, isPremium]);
 
   // Previews are a few seconds of speech: the server renders them inline.
   const remoteUrl = status && (status.ready || preview) ? absoluteUrl(status.url) : null;
@@ -105,9 +108,10 @@ export function StoryAudioProvider({
   useEffect(() => { setCachedUri(cacheKey ? getCachedAudioUri(cacheKey) : null); }, [cacheKey]);
 
   const source = useMemo(() => {
+    if (!isPremium) return null;
     const uri = localUri ?? cachedUri ?? remoteUrl;
     return uri ? { uri } : null;
-  }, [localUri, cachedUri, remoteUrl]);
+  }, [localUri, cachedUri, remoteUrl, isPremium]);
 
   const player = useAudioPlayer(source);
   const status_ = useAudioPlayerStatus(player);
@@ -115,6 +119,12 @@ export function StoryAudioProvider({
   const [starting, setStarting] = useState(false);
   const [panel, setPanel] = useState<Panel>("none");
   const [resumeFrom, setResumeFrom] = useState<number | null>(null);
+  useEffect(() => {
+    if (isPremium) return;
+    setWantPlay(false);
+    setPanel("none");
+    try { player.pause(); samplePlayer.pause(); } catch {}
+  }, [isPremium, player, samplePlayer]);
   const [offline, setOffline] = useState<OfflineState>(
     !OFFLINE_SUPPORTED || preview ? "unsupported" : localUri ? "ready" : "none",
   );
@@ -161,15 +171,18 @@ export function StoryAudioProvider({
   // until the persistent asset exists. Concurrent listeners share one job
   // server-side; the provider is called exactly once per combination.
   const ensureAudio = useCallback(async (): Promise<TtsStatus | null> => {
+    if (!premiumRef.current) return null;
     if (status?.ready) return status;
     setGenerating(true);
     setUnavailable(false);
     try {
       await api.warmupTts(storyId, voice);
       const deadline = Date.now() + GENERATION_TIMEOUT_MS;
-      while (Date.now() < deadline) {
+      while (premiumRef.current && Date.now() < deadline) {
         await new Promise((r) => setTimeout(r, GENERATION_POLL_MS));
+        if (!premiumRef.current) return null;
         const s = await api.ttsStatus(storyId, { voice, preview });
+        if (!premiumRef.current) return null;
         if (s.ready) { setStatus(s); return s; }
         if (s.error && !s.generating) break; // provider failed: stop waiting
       }
@@ -184,10 +197,10 @@ export function StoryAudioProvider({
   }, [status, storyId, voice, preview]);
 
   useEffect(() => {
-    if (!wantPlay || !isLoaded) return;
+    if (!wantPlay || !isLoaded || !isPremium) return;
     setWantPlay(false);
     try { player.play(); } catch {}
-  }, [wantPlay, isLoaded, player]);
+  }, [wantPlay, isLoaded, player, isPremium]);
 
   // --- Exact resume (Premium) ---------------------------------------------
   const restoredRef = useRef<string | null>(null);
@@ -226,11 +239,11 @@ export function StoryAudioProvider({
   // --- Autoplay (playlist) -------------------------------------------------
   const autoRef = useRef(false);
   useEffect(() => {
-    if (!autoplay || autoRef.current || !status) return;
+    if (!isPremium || !autoplay || autoRef.current || !status) return;
     autoRef.current = true;
     if (source) { setWantPlay(true); return; }
     ensureAudio().then((s) => { if (s) setWantPlay(true); });
-  }, [autoplay, status, source, ensureAudio]);
+  }, [autoplay, status, source, ensureAudio, isPremium]);
 
   // --- Listening time → backend (flush every 30s and on unmount) -----------
   const listenedRef = useRef(0);
@@ -256,14 +269,17 @@ export function StoryAudioProvider({
   }, [isPremium, router]);
 
   const setRate = (v: number) => {
+    if (!premiumRef.current) return;
     if (v > FREE_MAX_SPEED) return requirePremium(() => updatePrefs({ rate: v }));
     updatePrefs({ rate: v });
   };
   const setVoice = (v: VoiceId) => {
+    if (!premiumRef.current) return;
     if (v !== FREE_VOICE) return requirePremium(() => updatePrefs({ voice: v }));
     updatePrefs({ voice: v });
   };
   const playSample = (v: VoiceId) => {
+    if (!premiumRef.current) return;
     Haptics.selectionAsync().catch(() => {});
     try {
       samplePlayer.replace({ uri: voiceSampleUrl(v) });
@@ -272,12 +288,13 @@ export function StoryAudioProvider({
   };
 
   const togglePlay = async () => {
+    if (!premiumRef.current) return;
     Haptics.selectionAsync().catch(() => {});
     if (playing) { player.pause(); return; }
     if (!source) {
       // Nothing to play yet: generate once (or wait for a job in progress),
       // then start as soon as the persistent asset is loaded.
-      if (!status || generating) return;
+      if (generating) return;
       setWantPlay(true);
       const s = await ensureAudio();
       if (!s) setWantPlay(false);
@@ -294,6 +311,7 @@ export function StoryAudioProvider({
   };
 
   const skip = (delta: number) => {
+    if (!premiumRef.current) return;
     Haptics.selectionAsync().catch(() => {});
     const target = Math.max(0, Math.min(duration || Number.MAX_SAFE_INTEGER, position + delta));
     player.seekTo(target);

@@ -101,3 +101,46 @@
 #====================================================================================================
 # Testing Data - Main Agent and testing sub agent both should log testing data below this section
 #====================================================================================================
+
+user_problem_statement: "Genera finché ti è possibile delle nuove copertine dove mancantiPoi dovresti riattivare le icone 3d che avevo creato per le categorie, non le vedo"
+backend:
+  - task: Restore original category 3D illustrations and generate missing covers
+    implemented: true
+    working: true
+    file: backend/restore_category_art.py, backend/restore_generated_covers.py, backend/covers_sync.py
+    stuck_count: 0
+    priority: high
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: main
+        comment: "Restored all 13 approved originals via --reupload; all media endpoints verified 200 WebP. Fixed empty Mongo projection misclassifying 8 local covers as unknown; all 8 imported. Created 60 new covers via creation-time image generation, 5 per category, with content-addressed hero/thumb variants and persistent source manifest. Runtime LLM batch stopped on exhausted budget (0 successes), no further runtime generation authorized during tests. 210 truly empty covers remain. Existing curated photos untouched."
+frontend:
+  - task: Show restored category art and story covers with image error fallback
+    implemented: true
+    working: true
+    file: frontend/src/components/story-hero.tsx, frontend/src/api.ts
+    stuck_count: 0
+    priority: high
+    needs_retesting: true
+    status_history:
+      - working: true
+        agent: main
+        comment: "Category delivery revision resets previously failed mounted images. StoryHero now falls back generated -> curated -> branded placeholder instead of blank. Added unique image/fallback test IDs. Screenshot verified restored 3D icons in onboarding and navigation to Home. Test report iteration 1 was migration only, now retest media."
+metadata:
+  created_by: main_agent
+  version: "1.1"
+  test_sequence: 2
+  run_ui: true
+test_plan:
+  current_focus:
+    - All 13 category endpoints and 68 story covers (60 new + 8 restored)
+    - WebP hero/thumb dimensions, cache ETags, preservation of originals
+    - Onboarding, Home category strip, Topics and story reader media
+    - Import idempotence and StoryHero error fallback
+  stuck_tasks: []
+  test_all: false
+  test_priority: high_first
+agent_communication:
+  - agent: main
+    message: "Read memory/test_credentials.md. Anonymous app, no auth. Use preview URL from frontend/.env. Do NOT call TTS, image generation APIs or payments. Inspect generated_cover_sources.json for all 60 new IDs. Test metadata and actual image bytes via /api/media/<id>?size=hero|thumb. Missing paths must still 404. Screenshots at 390x844; no native device available."

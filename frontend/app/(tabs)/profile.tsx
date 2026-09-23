@@ -35,7 +35,7 @@ export default function Profile() {
   const { data: categories } = useQuery({ queryKey: ["categories"], queryFn: api.categories });
 
   const resetOnboarding = async () => {
-    await AsyncStorage.removeItem("pause.onboarded");
+    await AsyncStorage.removeItem("pause.onboarded.v2");
     router.replace("/onboarding");
   };
 

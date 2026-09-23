@@ -2,17 +2,16 @@
 // the deep-dive header (opens the sheet with the full AudioCard inside).
 
 import React from "react";
-import { View, Text, Pressable, ActivityIndicator, Modal, ScrollView } from "react-native";
+import { View, Text, Pressable, Modal, ScrollView } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Ionicons from "@react-native-vector-icons/ionicons";
 
-import { spacing, typography, useTheme } from "@/src/theme";
+import { spacing, useTheme } from "@/src/theme";
 import { useI18n } from "@/src/i18n";
-import { GlowButton, GlowOrb } from "@/src/components/glass";
+import { FrostedButton } from "@/src/components/frosted-button";
 
 import { useAudio } from "./context";
 import { AudioCard } from "./audio-card";
-import { fmt } from "./constants";
 import { useStyles } from "./styles";
 
 // Bottom sheet della narrazione: si apre dal tastino "cuffie" accanto al
@@ -22,6 +21,8 @@ export function AudioSheet({ visible, onClose, testID = "audio-sheet" }: { visib
   const styles = useStyles();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { isPremium } = useAudio();
+  if (!isPremium) return null;
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={styles.sheetBackdrop} onPress={onClose} testID="audio-sheet-backdrop" />
@@ -46,29 +47,11 @@ export function AudioSheet({ visible, onClose, testID = "audio-sheet" }: { visib
 
 // Pulsante "Ascolta" del capitolo: vetro cyan con glow morbido e disco
 // luminoso per l'icona (play/pausa/caricamento). Apre il foglio del player.
-export function AudioTrigger({ onPress, testID = "audio-trigger" }: { onPress: () => void; testID?: string }) {
-  const { colors } = useTheme();
+export function AudioTrigger({ onPress, testID = "audio-trigger", iconOnly = false }: { onPress: () => void; testID?: string; iconOnly?: boolean }) {
   const { t } = useI18n();
   const a = useAudio();
-  return (
-    <GlowButton
-      onPress={onPress}
-      active={a.playing}
-      height={40}
-      testID={testID}
-      accessibilityLabel={t.audio_eyebrow}
-      contentStyle={{ paddingLeft: 6, paddingRight: 14, gap: 8 }}
-    >
-      <GlowOrb size={28}>
-        {a.buffering ? (
-          <ActivityIndicator size="small" color={colors.surface} />
-        ) : (
-          <Ionicons name={a.playing ? "pause" : "play"} size={13} color={colors.surface} style={a.playing ? undefined : { marginLeft: 2 }} />
-        )}
-      </GlowOrb>
-      <Text style={{ color: colors.textWarm, fontFamily: typography.bodyBold, fontSize: 12.5, letterSpacing: 0.3 }}>
-        {a.playing ? fmt(a.position) : t.audio_listen_short}
-      </Text>
-    </GlowButton>
-  );
+  if (!a.isPremium) return null;
+  return <FrostedButton testID={testID} onPress={onPress} compact
+    icon={a.playing ? "headset" : "headset-outline"} loading={a.buffering}
+    label={iconOnly ? undefined : t.audio_listen_short} accessibilityLabel={t.audio_listen_short} />;
 }

@@ -24,6 +24,7 @@ export function AudioCard({ compact = false, dense = false, testID }: { compact?
   const a = useAudio();
   const [expanded, setExpanded] = useState(false);
   compact = compact || dense;
+  if (!a.isPremium) return null;
 
   const voiceName = (v: VoiceId) => t[`voice_${v}` as const].split(" · ")[0];
   const subtitle = a.unavailable ? t.audio_unavailable

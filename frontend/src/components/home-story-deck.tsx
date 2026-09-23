@@ -14,11 +14,11 @@ import { HomeStoryCard } from "./home-story-card";
 import { HomeNavButton } from "./home-controls";
 import { PagerDots } from "./pager";
 
-type Props = { deck: StoryPreview[]; cursor: number; onChange: (index: number) => void; onOpen: (story: StoryPreview) => void };
+type Props = { deck: StoryPreview[]; cursor: number; onChange: (index: number) => void; onOpen: (story: StoryPreview) => void; onListen?: (story: StoryPreview) => void };
 const MAX_DOTS = 8;
 const OFFSET = 16;
 
-export function HomeStoryDeck({ deck, cursor, onChange, onOpen }: Props) {
+export function HomeStoryDeck({ deck, cursor, onChange, onOpen, onListen }: Props) {
   const styles = useStyles();
   const { t, lang } = useI18n();
   const { width } = useWindowDimensions();
@@ -87,10 +87,8 @@ export function HomeStoryDeck({ deck, cursor, onChange, onOpen }: Props) {
       .onFinalize((_e, success) => {
         if (!success && !busy.value) tx.value = withSpring(0, { damping: 22, stiffness: 220 });
       });
-    const tap = Gesture.Tap().maxDistance(10).maxDuration(400)
-      .onEnd((_e, success) => { if (success && !busy.value) runOnJS(open)(); });
-    return Gesture.Race(pan, tap);
-  }, [busy, tx, canNext, canPrev, move, open]);
+    return pan;
+  }, [busy, tx, canNext, canPrev, move]);
 
   const start = Math.max(0, cursor - 1);
   return (
@@ -100,7 +98,8 @@ export function HomeStoryDeck({ deck, cursor, onChange, onOpen }: Props) {
           <View style={styles.gestureSurface} testID="discover-swipe-area" collapsable={false}>
             {deck.slice(start, cursor + 2).map((story, offset) => (
               <StoryLayer key={story.id} story={story} index={start + offset} active={start + offset === cursor}
-                position={position} tx={tx} width={width} onOpen={open} />
+                position={position} tx={tx} width={width} onOpen={open}
+                onListen={onListen ? () => { if (!moving.current) onListen(story); } : undefined} />
             ))}
           </View>
         </GestureDetector>
@@ -118,9 +117,9 @@ export function HomeStoryDeck({ deck, cursor, onChange, onOpen }: Props) {
   );
 }
 
-function StoryLayer({ story, index, active, position, tx, width, onOpen }: {
+function StoryLayer({ story, index, active, position, tx, width, onOpen, onListen }: {
   story: StoryPreview; index: number; active: boolean; position: SharedValue<number>;
-  tx: SharedValue<number>; width: number; onOpen: () => void;
+  tx: SharedValue<number>; width: number; onOpen: () => void; onListen?: () => void;
 }) {
   const styles = useStyles();
   const animatedStyle = useAnimatedStyle(() => {
@@ -142,11 +141,10 @@ function StoryLayer({ story, index, active, position, tx, width, onOpen }: {
   return (
     <Animated.View
       testID={`deck-layer-${story.id}`} style={[styles.layer, animatedStyle]}
-      pointerEvents={active ? "auto" : "none"} accessible={active}
+      pointerEvents={active ? "auto" : "none"} accessible={false}
       accessibilityElementsHidden={!active} importantForAccessibility={active ? "yes" : "no-hide-descendants"}
-      accessibilityRole="button" accessibilityLabel={story.title} onAccessibilityTap={onOpen}
     >
-      <HomeStoryCard story={story} active={active} onOpen={onOpen} />
+      <HomeStoryCard story={story} active={active} onOpen={onOpen} onListen={onListen} />
     </Animated.View>
   );
 }
